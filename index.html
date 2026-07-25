@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Ledger — Lead & Callback Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#132A3A">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<style>
+  :root{
+    --bg:#FAF8F4; --bg-card:#FFFFFF; --bg-dim:#F0ECE3; --text:#132A3A; --text-dim:#6B6559; --line:#DDD6C7;
+    --header:#132A3A; --header-soft:#294357; --header-text:#FAF8F4;
+    --gold:#C68A2E; --green:#2F6B4F; --green-bg:#E6F0EA; --red:#A8402F; --red-bg:#F5E6E1;
+    --amber:#B4761F; --amber-bg:#FBEEDA; --blue:#2E5C8A; --blue-bg:#E5EEF6; --gray:#6B6559; --gray-bg:#EDE9DF;
+    font-size:16px;
+  }
+  body.dark{
+    --bg:#0F1B24; --bg-card:#16232D; --bg-dim:#1C2A35; --text:#EDEAE1; --text-dim:#93A2AC; --line:#283746;
+    --header:#0A141B; --header-soft:#182631; --header-text:#EDEAE1;
+    --green-bg:#173327; --red-bg:#331F1A; --amber-bg:#33260F; --blue-bg:#152A3C; --gray-bg:#1E2A32;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:76px; transition:background .2s;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;}
+
+  header.top{background:var(--header); color:var(--header-text); padding:14px 16px 12px; position:sticky; top:0; z-index:20;}
+  header.top .brand{display:flex; align-items:center; justify-content:space-between;}
+  header.top h1{font-size:18px; margin:0; letter-spacing:.2px; font-weight:700;}
+  header.top .tag{font-size:10.5px; color:#C9B98B; margin-top:1px; font-family:ui-monospace,monospace;}
+  .icon-btn{background:var(--header-soft); border:none; color:var(--header-text); width:34px; height:34px; border-radius:9px; font-size:16px; cursor:pointer;}
+  .head-actions{display:flex; gap:6px;}
+
+  .dash-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:12px;}
+  .dstat{background:var(--header-soft); border-radius:10px; padding:8px 8px;}
+  .dstat .n{font-family:ui-monospace,monospace; font-size:15px; font-weight:700; color:#fff;}
+  .dstat .l{font-size:9.5px; color:#B9C6D1; margin-top:2px; line-height:1.2;}
+
+  main{padding:12px 12px 8px;}
+  .section-label{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin:16px 2px 8px; font-weight:600;}
+  .section-label .count{font-family:ui-monospace,monospace; color:var(--gold);}
+
+  .searchbar{display:flex; gap:8px; align-items:center; background:var(--bg-card); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:4px;}
+  .searchbar input{border:none; outline:none; flex:1; font-size:15px; background:transparent; color:var(--text);}
+  .filters{display:flex; gap:6px; overflow-x:auto; padding:10px 0 4px;}
+  .chip{flex:0 0 auto; font-size:12px; padding:6px 11px; border-radius:999px; border:1px solid var(--line); background:var(--bg-card); color:var(--text-dim); cursor:pointer; white-space:nowrap;}
+  .chip.active{background:var(--text); color:var(--bg); border-color:var(--text);}
+
+  .callback-card{background:var(--bg-card); border:1px solid var(--line); border-left:4px solid var(--gray); border-radius:10px; padding:11px 13px; margin-bottom:9px;}
+  .callback-card.overdue{border-left-color:var(--red); background:var(--red-bg);}
+  .callback-card.today{border-left-color:var(--amber); background:var(--amber-bg);}
+  .callback-card.soon{border-left-color:var(--blue); background:var(--blue-bg);}
+  .callback-card .row1{display:flex; justify-content:space-between; align-items:center;}
+  .callback-card .biz{font-weight:600; font-size:14.5px;}
+  .callback-card .when{font-family:ui-monospace,monospace; font-size:12px; font-weight:600;}
+  .callback-card .meta{font-size:12px; color:var(--text-dim); margin-top:3px;}
+  .callback-card .note{font-size:12.5px; color:var(--text); margin-top:5px; font-style:italic;}
+  .cb-actions{display:flex; gap:6px; margin-top:9px;}
+  .cb-actions button{flex:1; font-size:11.5px; padding:7px; border-radius:7px; border:1px solid var(--line); background:var(--bg-card); color:var(--text); cursor:pointer;}
+  .priority-dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px;}
+
+  .lead-card{background:var(--bg-card); border:1px solid var(--line); border-radius:10px; padding:12px 13px; margin-bottom:9px; position:relative;}
+  .lead-card.starred{border-left:4px solid var(--gold);}
+  .lead-card .row1{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .lead-card .biz{font-weight:700; font-size:15px;}
+  .lead-card .lid{font-size:10px; color:var(--text-dim); font-family:ui-monospace,monospace;}
+  .lead-card .owner{font-size:12.5px; color:var(--text-dim); margin-top:1px;}
+  .badge{font-size:10.5px; font-weight:600; padding:4px 9px; border-radius:999px; white-space:nowrap; text-transform:capitalize;}
+  .lead-card .row2{display:flex; justify-content:space-between; align-items:center; margin-top:9px; font-size:12.5px; color:var(--text-dim);}
+  .lead-card .cost{font-family:ui-monospace,monospace; font-weight:600;}
+  .lead-card .req{font-size:12.5px; color:var(--text-dim); margin-top:6px;}
+  .lead-card .cb-line{font-size:12px; margin-top:7px; padding-top:7px; border-top:1px dashed var(--line); color:var(--text-dim);}
+  .tags-row{display:flex; gap:5px; flex-wrap:wrap; margin-top:7px;}
+  .tag-chip{font-size:10px; background:var(--bg-dim); color:var(--text-dim); padding:3px 8px; border-radius:999px;}
+  .star-btn{position:absolute; top:10px; right:10px; background:none; border:none; font-size:16px; cursor:pointer; color:var(--line);}
+  .star-btn.on{color:var(--gold);}
+  .quick-actions{display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .qa-btn{flex:1; text-align:center; font-size:16px; padding:8px 4px; border-radius:8px; background:var(--bg-dim); text-decoration:none; color:var(--text); cursor:pointer; border:none;}
+
+  .empty{text-align:center; color:var(--text-dim); font-size:13.5px; padding:30px 10px;}
+
+  .fab{position:fixed; right:18px; bottom:84px; width:54px; height:54px; border-radius:50%; background:var(--gold); color:#fff; border:none; font-size:26px; box-shadow:0 4px 14px rgba(0,0,0,.25); z-index:30; cursor:pointer;}
+  nav.bottom{position:fixed; bottom:0; left:0; right:0; background:var(--bg-card); border-top:1px solid var(--line); display:flex; z-index:20; padding-bottom:env(safe-area-inset-bottom);}
+  nav.bottom button{flex:1; background:none; border:none; padding:11px 4px 9px; font-size:11px; color:var(--text-dim); display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;}
+  nav.bottom button.active{color:var(--text); font-weight:700;}
+  nav.bottom .ic{font-size:18px;}
+
+  .sheet-backdrop{position:fixed; inset:0; background:rgba(19,42,58,.5); z-index:40; display:none;}
+  .sheet-backdrop.open{display:block;}
+  .sheet{position:fixed; left:0; right:0; bottom:0; background:var(--bg); z-index:41; border-radius:16px 16px 0 0; max-height:92vh; overflow-y:auto; padding:18px 18px calc(24px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform .25s ease; box-shadow:0 -6px 24px rgba(0,0,0,.3);}
+  .sheet.open{transform:translateY(0);}
+  .sheet h2{font-size:17px; margin:0 0 14px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:11.5px; font-weight:600; color:var(--text-dim); margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em;}
+  .field input, .field select, .field textarea{width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 11px; font-size:15px; background:var(--bg-card); color:var(--text); font-family:inherit;}
+  .field textarea{resize:vertical; min-height:56px;}
+  .two-col{display:flex; gap:10px;}
+  .three-col{display:flex; gap:8px;}
+  .two-col .field, .three-col .field{flex:1;}
+  .sheet-actions{display:flex; gap:10px; margin-top:16px;}
+  .btn{flex:1; padding:12px; border-radius:9px; border:none; font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn.primary{background:var(--text); color:var(--bg);}
+  .btn.danger{background:var(--red-bg); color:var(--red);}
+  .btn.ghost{background:var(--bg-dim); color:var(--text-dim);}
+  .close-x{position:absolute; right:14px; top:14px; font-size:20px; color:var(--text-dim); background:none; border:none;}
+  details.grp{border:1px solid var(--line); border-radius:10px; margin-bottom:12px; background:var(--bg-card);}
+  details.grp summary{padding:11px 13px; font-weight:700; font-size:13.5px; cursor:pointer; list-style:none;}
+  details.grp summary::-webkit-details-marker{display:none;}
+  details.grp summary::before{content:'▸ '; color:var(--gold);}
+  details.grp[open] summary::before{content:'▾ '; color:var(--gold);}
+  details.grp .grp-body{padding:2px 13px 13px;}
+  .social-row{display:flex; gap:6px; margin-bottom:6px;}
+  .social-row input{flex:1;}
+  .social-row button{border:none; background:var(--red-bg); color:var(--red); border-radius:7px; width:36px; font-size:15px;}
+  .add-link-btn{font-size:12.5px; color:var(--blue); background:none; border:none; padding:4px 0; cursor:pointer; font-weight:600;}
+  .mic-wrap{position:relative;}
+  .mic-btn{position:absolute; right:8px; bottom:8px; background:var(--bg-dim); border:none; width:28px; height:28px; border-radius:50%; font-size:13px; cursor:pointer;}
+  .mic-btn.listening{background:var(--red-bg); color:var(--red);}
+  .other-input{margin-top:6px;}
+  .print-only{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    .print-only, .print-only *{visibility:visible;}
+    .print-only{display:block; position:absolute; left:0; top:0; width:100%; padding:20px; color:#000; background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div>
+      <h1>Ledger</h1>
+      <div class="tag">leads · callbacks · payments</div>
+    </div>
+    <div class="head-actions">
+      <button class="icon-btn" onclick="toggleDark()" title="Dark mode">🌓</button>
+      <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    </div>
+  </div>
+  <div class="dash-grid" id="dashGrid"></div>
+</header>
+
+<main id="mainView"></main>
+
+<button class="fab" onclick="openForm()">+</button>
+
+<nav class="bottom">
+  <button id="navDash" class="active" onclick="switchTab('dashboard')"><span class="ic">☎</span>Callbacks</button>
+  <button id="navLeads" onclick="switchTab('leads')"><span class="ic">☰</span>Leads</button>
+  <button id="navReports" onclick="switchTab('reports')"><span class="ic">📊</span>Reports</button>
+</nav>
+
+<div class="sheet-backdrop" id="backdrop" onclick="closeAllSheets()"></div>
+
+<!-- LEAD FORM -->
+<div class="sheet" id="sheet">
+  <button class="close-x" onclick="closeAllSheets()">✕</button>
+  <h2 id="sheetTitle">New Lead</h2>
+  <div id="leadIdLine" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;font-family:ui-monospace,monospace;"></div>
+
+  <details class="grp" open><summary>Basic Info</summary><div class="grp-body">
+    <div class="field"><label>Business Name</label><input id="f_biz" placeholder="e.g. Sharma Textiles"></div>
+    <div class="two-col">
+      <div class="field"><label>Owner Name</label><input id="f_owner" placeholder="e.g. Ramesh Sharma"></div>
+      <div class="field"><label>Decision Maker</label><input id="f_dm" placeholder="If different"></div>
+    </div>
+    <div class="field"><label>Designation</label><input id="f_designation" placeholder="e.g. Marketing Head"></div>
+  </div></details>
+
+  <details class="grp" open><summary>Contact</summary><div class="grp-body">
+    <div class="field"><label>Phone Number(s) — comma separated</label><input id="f_phones" type="tel" placeholder="98765 43210, 91234 56789"></div>
+    <div class="field"><label>Email(s) — comma separated</label><input id="f_emails" placeholder="owner@business.com"></div>
+    <div class="field"><label>Website</label><input id="f_website" placeholder="https://..."></div>
+    <div class="field"><label>Google Maps Location (link)</label><input id="f_gmap" placeholder="Paste Google Maps link"></div>
+    <div class="field"><label>Social & Other Links</label><div id="socialRows"></div>
+      <button class="add-link-btn" onclick="addSocialRow()">+ Add link (Instagram, FB, YouTube...)</button>
+    </div>
+  </div></details>
+
+  <details class="grp"><summary>Business Details</summary><div class="grp-body">
+    <div class="two-col">
+      <div class="field"><label>GST Number</label><input id="f_gst" placeholder="Optional"></div>
+      <div class="field"><label>Industry</label><input id="f_industry" placeholder="e.g. Retail"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Company Size</label><select id="f_companysize"><option value="">—</option><option>1-10</option><option>11-50</option><option>51-200</option><option>200+</option></select></div>
+      <div class="field"><label>Annual Revenue</label><input id="f_revenue" placeholder="Optional"></div>
+    </div>
+  </div></details>
+
+  <details class="grp" open><summary>Source & Requirement</summary><div class="grp-body">
+    <div class="field"><label>Source</label>
+      <select id="f_source" onchange="toggleOther('f_source','f_source_other')">
+        <option>GMB</option><option>Startup</option><option>GST</option><option>Instagram</option>
+        <option>Facebook</option><option>LinkedIn</option><option>Reference</option><option>Scouting</option><option>Other</option>
+      </select>
+      <input id="f_source_other" class="other-input" style="display:none" placeholder="Enter source name">
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Sub Source</label><input id="f_subsource" placeholder="Optional"></div>
+      <div class="field"><label>Campaign Name</label><input id="f_campaign" placeholder="Optional"></div>
+    </div>
+    <div class="field"><label>Requirement</label>
+      <select id="f_req" onchange="toggleOther('f_req','f_req_other')">
+        <option>Website</option><option>Digital Marketing</option><option>Website+Digital Marketing</option>
+        <option>Editing</option><option>Ads Management</option><option>Content Creation</option>
+        <option>YouTube Videos</option><option>Other</option>
+      </select>
+      <input id="f_req_other" class="other-input" style="display:none" placeholder="Enter requirement">
+    </div>
+  </div></details>
+
+  <details class="grp" open><summary>Status & Deal</summary><div class="grp-body">
+    <div class="two-col">
+      <div class="field">
+        <label>Status</label>
+        <select id="f_status">
+          <option>Lead</option><option>Qualified Prospect</option><option>Meeting Scheduled</option>
+          <option>Rescheduled Meeting</option><option>Payment Followup</option><option>Payment Confirmation</option>
+          <option>Pending Payment</option><option>Won</option><option>Lost</option><option>Disqualified</option><option>Low Budget</option>
+        </select>
+      </div>
+      <div class="field"><label>Cost / Value</label><input id="f_cost" type="number" placeholder="0"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Expected Closing Date</label><input id="f_close" type="date"></div>
+      <div class="field"><label>Lead Qualified On</label><input id="f_qualified" type="date"></div>
+    </div>
+  </div></details>
+
+  <details class="grp" open><summary>Callback</summary><div class="grp-body">
+    <div class="two-col">
+      <div class="field"><label>Date</label><input id="f_cbdate" type="date"></div>
+      <div class="field"><label>Time</label><input id="f_cbtime" type="time"></div>
+    </div>
+    <div class="three-col">
+      <div class="field"><label>Priority</label><select id="f_cbpriority"><option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option></select></div>
+      <div class="field"><label>Remind before</label><select id="f_cbremind"><option value="15">15 min</option><option value="5">5 min</option><option value="60">1 hour</option><option value="0">At time</option></select></div>
+      <div class="field"><label>Repeat</label><select id="f_cbrepeat"><option value="none">None</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
+    </div>
+  </div></details>
+
+  <details class="grp"><summary>Meeting</summary><div class="grp-body">
+    <div class="two-col">
+      <div class="field"><label>Meeting Date</label><input id="f_mdate" type="date"></div>
+      <div class="field"><label>Meeting Time</label><input id="f_mtime" type="time"></div>
+    </div>
+    <div class="field"><label>Location</label><input id="f_mlocation" placeholder="Address or place name"></div>
+    <div class="field"><label>Maps Link</label><input id="f_mmap" placeholder="Paste Google Maps link"></div>
+    <div class="field"><label>Agenda</label><textarea id="f_magenda"></textarea></div>
+    <div class="field"><label>Outcome</label><textarea id="f_moutcome"></textarea></div>
+    <div class="field"><label>Next Meeting Date</label><input id="f_mnext" type="date"></div>
+  </div></details>
+
+  <details class="grp" open><summary>Notes & Tags</summary><div class="grp-body">
+    <div class="field"><label>Note</label>
+      <div class="mic-wrap">
+        <textarea id="f_note" placeholder="Any notes, call summary, objections..."></textarea>
+        <button type="button" class="mic-btn" id="micBtn" onclick="toggleVoice()">🎤</button>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Tags — comma separated</label><input id="f_tags" placeholder="e.g. urgent, referred-by-amit"></div>
+      <div class="field"><label>Color Label</label>
+        <select id="f_color"><option value="">None</option><option value="red">Red</option><option value="amber">Amber</option><option value="green">Green</option><option value="blue">Blue</option><option value="gray">Gray</option></select>
+      </div>
+    </div>
+  </div></details>
+
+  <div class="sheet-actions">
+    <button class="btn danger" id="deleteBtn" style="display:none" onclick="deleteLead()">Delete</button>
+    <button class="btn primary" onclick="saveLead()">Save Lead</button>
+  </div>
+</div>
+
+<!-- SETTINGS SHEET -->
+<div class="sheet" id="settingsSheet">
+  <button class="close-x" onclick="closeAllSheets()">✕</button>
+  <h2>Settings</h2>
+  <div class="field">
+    <label>Reminder Notifications</label>
+    <button class="btn ghost" style="width:100%" onclick="requestNotifPermission()" id="notifBtn">Enable notifications</button>
+    <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;">Fires while the app is open or recently opened in the background. Open Ledger at least once a day for best results.</div>
+  </div>
+  <div class="field">
+    <label>Backup & Restore</label>
+    <button class="btn ghost" style="width:100%;margin-bottom:8px" onclick="exportCSV()">⬇ Export all leads to CSV (Excel)</button>
+    <button class="btn ghost" style="width:100%;margin-bottom:8px" onclick="printPDF()">⬇ Export report to PDF</button>
+    <button class="btn ghost" style="width:100%;margin-bottom:8px" onclick="document.getElementById('importFile').click()">⬆ Import from CSV</button>
+    <input type="file" id="importFile" accept=".csv" style="display:none" onchange="importCSV(event)">
+  </div>
+  <div class="field">
+    <label>Data</label>
+    <div style="font-size:12px;color:var(--text-dim)">All data is stored only on this device. <span id="leadCountLabel"></span></div>
+  </div>
+</div>
+
+<div class="print-only" id="printArea"></div>
+
+<script>
+let leads = [];
+let currentTab = 'dashboard';
+let currentFilter = 'all';
+let sourceFilter = 'all';
+let starredOnly = false;
+let editingId = null;
+let recognition = null;
+let scheduledTimeouts = [];
+
+const STATUS_STYLE = {
+  'lead': 'gray', 'qualified prospect': 'blue', 'meeting scheduled': 'blue',
+  'rescheduled meeting': 'amber', 'payment followup': 'amber', 'payment confirmation': 'green',
+  'pending payment': 'amber', 'won': 'green', 'lost': 'red', 'disqualified': 'red', 'low budget': 'gray'
+};
+const OPEN_STATUSES = ['lead','qualified prospect','meeting scheduled','rescheduled meeting','payment followup','payment confirmation','pending payment'];
+
+/* ---------- storage ---------- */
+async function loadLeads(){
+  try{ const raw = localStorage.getItem('crm-leads'); leads = raw ? JSON.parse(raw) : []; }catch(e){ leads = []; }
+  applyTheme();
+  render();
+  scheduleReminders();
+}
+async function persist(){
+  try{ localStorage.setItem('crm-leads', JSON.stringify(leads)); }
+  catch(e){ alert('Could not save — storage may be full.'); }
+}
+function nextLeadId(){
+  let n = parseInt(localStorage.getItem('crm-counter')||'0',10) + 1;
+  localStorage.setItem('crm-counter', n);
+  return 'LD-' + String(n).padStart(4,'0');
+}
+
+/* ---------- theme ---------- */
+function applyTheme(){
+  const dark = localStorage.getItem('crm-theme') === 'dark';
+  document.body.classList.toggle('dark', dark);
+}
+function toggleDark(){
+  const dark = !document.body.classList.contains('dark');
+  document.body.classList.toggle('dark', dark);
+  localStorage.setItem('crm-theme', dark ? 'dark' : 'light');
+}
+
+/* ---------- tabs / nav ---------- */
+function switchTab(tab){
+  currentTab = tab;
+  document.getElementById('navDash').classList.toggle('active', tab==='dashboard');
+  document.getElementById('navLeads').classList.toggle('active', tab==='leads');
+  document.getElementById('navReports').classList.toggle('active', tab==='reports');
+  render();
+}
+
+/* ---------- date helpers ---------- */
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function daysUntil(dateStr){ if(!dateStr) return null; const today=new Date(); today.setHours(0,0,0,0); const d=new Date(dateStr+'T00:00:00'); return Math.round((d-today)/86400000); }
+function fmtDate(dateStr){ if(!dateStr) return ''; const d=new Date(dateStr+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function money(n){ if(n===undefined||n===null||n==='') return '—'; return '₹'+Number(n).toLocaleString('en-IN'); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function truncate(s,n){ return s && s.length>n ? s.slice(0,n)+'…' : (s||''); }
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function isOpen(status){ return OPEN_STATUSES.includes((status||'').toLowerCase()); }
+
+/* ---------- dashboard ---------- */
+function computeStats(){
+  const today = todayStr();
+  const open = leads.filter(l=>isOpen(l.status));
+  const won = leads.filter(l=>(l.status||'').toLowerCase()==='won');
+  const lost = leads.filter(l=>['lost','disqualified'].includes((l.status||'').toLowerCase()));
+  const newToday = leads.filter(l=>l.createdAt && new Date(l.createdAt).toISOString().slice(0,10)===today).length;
+  const cbToday = leads.filter(l=>l.callback && l.callback.date===today).length;
+  const missed = leads.filter(l=>l.callback && l.callback.date && daysUntil(l.callback.date)<0 && isOpen(l.status)).length;
+  const meetingsToday = leads.filter(l=>l.meeting && l.meeting.date===today).length;
+  const closingWeek = leads.filter(l=>{ if(!l.closeDate || !isOpen(l.status)) return false; const d=daysUntil(l.closeDate); return d!==null && d>=0 && d<=7; }).length;
+  const now = new Date();
+  const revenueMonth = won.filter(l=>{ const ref = l.closeDate || (l.updatedAt?new Date(l.updatedAt).toISOString().slice(0,10):null); if(!ref) return false; const d=new Date(ref+'T00:00:00'); return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear(); }).reduce((s,l)=>s+(Number(l.cost)||0),0);
+  const conversionRate = leads.length ? Math.round((won.length/leads.length)*100) : 0;
+  const avgDeal = won.length ? Math.round(won.reduce((s,l)=>s+(Number(l.cost)||0),0)/won.length) : 0;
+  const sourceCounts = {};
+  leads.forEach(l=>{ const s=l.source||'Unknown'; sourceCounts[s]=(sourceCounts[s]||0)+1; });
+  const topSource = Object.keys(sourceCounts).sort((a,b)=>sourceCounts[b]-sourceCounts[a])[0] || '—';
+  const winLoss = lost.length ? (won.length/lost.length).toFixed(1) : (won.length>0 ? '∞' : '0');
+  return {total:leads.length, newToday, cbToday, missed, meetingsToday, closingWeek, revenueMonth, conversionRate, avgDeal, topSource, winLoss, won:won.length, lost:lost.length};
+}
+function renderDashGrid(){
+  const s = computeStats();
+  const items = [
+    [s.total,'Total Leads'],[s.newToday,'New Today'],[s.cbToday,"Today's Callbacks"],
+    [s.missed,'Missed Follow-ups'],[s.meetingsToday,'Meetings Today'],[s.closingWeek,'Closing This Week'],
+    ['₹'+Math.round(s.revenueMonth/1000)+'k','Revenue/Month'],[s.conversionRate+'%','Conversion'],[s.avgDeal?money(s.avgDeal):'—','Avg Deal'],
+  ];
+  document.getElementById('dashGrid').innerHTML = items.map(i=>`<div class="dstat"><div class="n mono">${i[0]}</div><div class="l">${i[1]}</div></div>`).join('');
+}
+
+/* ---------- main render ---------- */
+function render(){
+  renderDashGrid();
+  const main = document.getElementById('mainView');
+  if(currentTab==='dashboard') main.innerHTML = renderCallbacks();
+  else if(currentTab==='leads') main.innerHTML = renderLeadsList();
+  else main.innerHTML = renderReports();
+  document.getElementById('leadCountLabel') && (document.getElementById('leadCountLabel').textContent = leads.length + ' leads stored.');
+}
+
+/* ---------- callbacks/dashboard tab ---------- */
+function renderCallbacks(){
+  const withCb = leads.filter(l=>l.callback && l.callback.date).map(l=>({...l, d: daysUntil(l.callback.date)})).sort((a,b)=>a.d-b.d || (a.callback.time||'').localeCompare(b.callback.time||''));
+  if(withCb.length===0) return `<div class="section-label">Callbacks</div><div class="empty">No callbacks scheduled yet.<br>Add a lead and set a callback date to see it here.</div>`;
+  const overdue = withCb.filter(l=>l.d<0), today = withCb.filter(l=>l.d===0), soon = withCb.filter(l=>l.d>0&&l.d<=7), later = withCb.filter(l=>l.d>7);
+  let html='';
+  const priColor = p => ({high:'var(--red)',medium:'var(--amber)',low:'var(--gray)'}[p]||'var(--gray)');
+  const block=(title,arr,cls)=>{
+    if(arr.length===0) return;
+    html += `<div class="section-label">${title} <span class="count">${arr.length}</span></div>`;
+    arr.forEach(l=>{
+      const timeStr = l.callback.time ? ' · '+l.callback.time : '';
+      let when = l.d===0 ? 'Today'+timeStr : l.d<0 ? Math.abs(l.d)+'d overdue' : 'in '+l.d+'d · '+fmtDate(l.callback.date);
+      const phone = (l.phones&&l.phones[0]) || '';
+      html += `<div class="callback-card ${cls}">
+        <div class="row1"><span class="biz"><span class="priority-dot" style="background:${priColor(l.callback.priority)}"></span>${esc(l.business)}</span><span class="when mono">${when}</span></div>
+        <div class="meta">${esc(l.owner||'')}${phone?' · '+esc(phone):''} · <span class="badge" style="background:${badgeBg(l.status)};color:${badgeColor(l.status)}">${esc(l.status)}</span></div>
+        ${l.note?`<div class="note">"${esc(truncate(l.note,70))}"</div>`:''}
+        <div class="cb-actions">
+          ${phone?`<button onclick="location.href='tel:${phone}'">📞 Call</button>`:''}
+          <button onclick="snoozeCallback('${l.id}',15)">Snooze 15m</button>
+          <button onclick="snoozeCallback('${l.id}',60)">Snooze 1h</button>
+          <button onclick="completeCallback('${l.id}')">✓ Done</button>
+        </div>
+      </div>`;
+    });
+  };
+  block('Overdue',overdue,'overdue'); block('Today',today,'today'); block('This Week',soon,'soon'); block('Later',later,'');
+  return html;
+}
+function snoozeCallback(id, mins){
+  const l = leads.find(x=>x.id===id); if(!l||!l.callback) return;
+  const base = l.callback.date && l.callback.time ? new Date(l.callback.date+'T'+l.callback.time) : new Date();
+  base.setMinutes(base.getMinutes()+mins);
+  l.callback.date = base.toISOString().slice(0,10);
+  l.callback.time = base.toTimeString().slice(0,5);
+  persist(); render(); scheduleReminders();
+}
+function completeCallback(id){
+  const l = leads.find(x=>x.id===id); if(!l||!l.callback) return;
+  if(l.callback.repeat==='daily'||l.callback.repeat==='weekly'){
+    const base = new Date(l.callback.date+'T'+(l.callback.time||'09:00'));
+    base.setDate(base.getDate() + (l.callback.repeat==='daily'?1:7));
+    l.callback.date = base.toISOString().slice(0,10);
+  } else {
+    l.callback = null;
+  }
+  persist(); render(); scheduleReminders();
+}
+
+/* ---------- leads tab ---------- */
+const STATUS_LIST = ['lead','qualified prospect','meeting scheduled','rescheduled meeting','payment followup','payment confirmation','pending payment','won','lost','disqualified','low budget'];
+const SOURCE_LIST = ['GMB','Startup','GST','Instagram','Facebook','LinkedIn','Reference','Scouting','Other'];
+
+function renderLeadsList(){
+  let html = `<div class="searchbar"><span>🔎</span><input id="searchInput" placeholder="Business, owner, mobile, tag..." oninput="onSearch(this.value)" value="${window._searchVal||''}"></div>`;
+  html += `<div class="filters">` + ['all',...STATUS_LIST].map(s=>`<div class="chip ${currentFilter===s?'active':''}" onclick="setFilter('${s}')">${s==='all'?'All Status':cap(s)}</div>`).join('') + `</div>`;
+  html += `<div class="filters">` + ['all',...SOURCE_LIST].map(s=>`<div class="chip ${sourceFilter===s?'active':''}" onclick="setSourceFilter('${s}')">${s==='all'?'All Sources':s}</div>`).join('') + `<div class="chip ${starredOnly?'active':''}" onclick="toggleStarredFilter()">⭐ Starred</div></div>`;
+
+  let filtered = leads;
+  const q = (window._searchVal||'').toLowerCase().trim();
+  if(q) filtered = filtered.filter(l => [l.business,l.owner,(l.phones||[]).join(' '),(l.emails||[]).join(' '),(l.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
+  if(currentFilter!=='all') filtered = filtered.filter(l=>(l.status||'').toLowerCase()===currentFilter);
+  if(sourceFilter!=='all') filtered = filtered.filter(l=>(l.source||'')===sourceFilter);
+  if(starredOnly) filtered = filtered.filter(l=>l.starred);
+  filtered = [...filtered].sort((a,b)=>(b.starred?1:0)-(a.starred?1:0) || (b.createdAt||0)-(a.createdAt||0));
+
+  html += `<div class="section-label">Leads <span class="count">${filtered.length}</span></div>`;
+  if(filtered.length===0){ html += `<div class="empty">No leads match. Tap + to add your first lead.</div>`; }
+  else {
+    filtered.forEach(l=>{
+      const phone = (l.phones&&l.phones[0])||'';
+      const email = (l.emails&&l.emails[0])||'';
+      const wa = phone ? 'https://wa.me/'+phone.replace(/[^0-9]/g,'') : '';
+      const mapUrl = l.gmap || (l.business ? 'https://www.google.com/maps/search/'+encodeURIComponent(l.business) : '');
+      html += `<div class="lead-card ${l.starred?'starred':''}">
+        <button class="star-btn ${l.starred?'on':''}" onclick="toggleStar('${l.id}')">★</button>
+        <div class="row1" onclick="openForm('${l.id}')" style="cursor:pointer">
+          <div><div class="lid">${l.id}</div><div class="biz">${esc(l.business)}</div><div class="owner">${esc(l.owner||'')}${phone?' · '+esc(phone):''}</div></div>
+          <span class="badge" style="background:${badgeBg(l.status)};color:${badgeColor(l.status)}">${esc(l.status)}</span>
+        </div>
+        <div onclick="openForm('${l.id}')" style="cursor:pointer">
+          ${l.req?`<div class="req">${esc(truncate(l.req,90))}</div>`:''}
+          <div class="row2"><span>${l.source?esc(l.source):''}</span><span class="cost">${money(l.cost)}</span></div>
+          ${l.callback&&l.callback.date?`<div class="cb-line">☎ Callback: ${fmtDate(l.callback.date)}${l.callback.time?' · '+l.callback.time:''}</div>`:''}
+        </div>
+        ${(l.tags&&l.tags.length)?`<div class="tags-row">${l.tags.map(t=>`<span class="tag-chip">${esc(t)}</span>`).join('')}</div>`:''}
+        <div class="quick-actions">
+          <button class="qa-btn" onclick="event.stopPropagation();${phone?`location.href='tel:${phone}'`:"alert('No phone number saved')"}">📞</button>
+          <button class="qa-btn" onclick="event.stopPropagation();${wa?`window.open('${wa}','_blank')`:"alert('No phone number saved')"}">💬</button>
+          <button class="qa-btn" onclick="event.stopPropagation();${email?`location.href='mailto:${email}'`:"alert('No email saved')"}">📧</button>
+          <button class="qa-btn" onclick="event.stopPropagation();window.open('${mapUrl}','_blank')">🗺️</button>
+          <button class="qa-btn" onclick="event.stopPropagation();openForm('${l.id}')">✏️</button>
+        </div>
+      </div>`;
+    });
+  }
+  return html;
+}
+function toggleStar(id){ const l=leads.find(x=>x.id===id); l.starred=!l.starred; persist(); render(); }
+function setFilter(s){ currentFilter=s; render(); }
+function setSourceFilter(s){ sourceFilter=s; render(); }
+function toggleStarredFilter(){ starredOnly=!starredOnly; render(); }
+function onSearch(v){ window._searchVal=v; render(); }
+
+function badgeBg(status){ const t=STATUS_STYLE[(status||'').toLowerCase()]||'gray'; return `var(--${t}-bg)`; }
+function badgeColor(status){ const t=STATUS_STYLE[(status||'').toLowerCase()]||'gray'; return `var(--${t})`; }
+
+/* ---------- reports tab ---------- */
+function renderReports(){
+  const s = computeStats();
+  const bySource = {};
+  leads.forEach(l=>{ const src=l.source||'Unknown'; bySource[src]=bySource[src]||{count:0,won:0}; bySource[src].count++; if((l.status||'').toLowerCase()==='won') bySource[src].won++; });
+  const lostReasons = {};
+  leads.filter(l=>['lost','disqualified','low budget'].includes((l.status||'').toLowerCase())).forEach(l=>{ const r=l.status; lostReasons[r]=(lostReasons[r]||0)+1; });
+  const pendingPayments = leads.filter(l=>['pending payment','payment followup'].includes((l.status||'').toLowerCase()));
+  const pendingTotal = pendingPayments.reduce((sum,l)=>sum+(Number(l.cost)||0),0);
+
+  let html = `<div class="section-label">Performance</div>
+    <div class="lead-card"><div class="row2"><span>Win / Loss Ratio</span><span class="cost">${s.won}:${s.lost}</span></div>
+    <div class="row2"><span>Top Source</span><span class="cost">${esc(s.topSource)}</span></div>
+    <div class="row2"><span>Conversion Rate</span><span class="cost">${s.conversionRate}%</span></div>
+    <div class="row2"><span>Avg Deal Size</span><span class="cost">${s.avgDeal?money(s.avgDeal):'—'}</span></div></div>`;
+
+  html += `<div class="section-label">Source Performance</div><div class="lead-card">` +
+    Object.keys(bySource).map(src=>`<div class="row2"><span>${esc(src)}</span><span class="cost">${bySource[src].count} leads · ${bySource[src].won} won</span></div>`).join('') +
+    `</div>`;
+
+  html += `<div class="section-label">Pending Payments <span class="count">${money(pendingTotal)}</span></div>`;
+  if(pendingPayments.length===0){ html += `<div class="empty">No pending payments.</div>`; }
+  else { pendingPayments.forEach(l=>{ html += `<div class="lead-card" onclick="openForm('${l.id}')" style="cursor:pointer"><div class="row2"><span>${esc(l.business)}</span><span class="cost">${money(l.cost)}</span></div></div>`; }); }
+
+  html += `<div class="section-label">Lost Reasons</div><div class="lead-card">` +
+    (Object.keys(lostReasons).length ? Object.keys(lostReasons).map(r=>`<div class="row2"><span>${esc(r)}</span><span class="cost">${lostReasons[r]}</span></div>`).join('') : '<div class="empty" style="padding:6px 0">None yet.</div>') +
+    `</div>`;
+
+  html += `<div style="margin-top:16px"><button class="btn ghost" style="width:100%" onclick="openSettings()">Export / Backup Options →</button></div>`;
+  return html;
+}
+
+/* ---------- social link rows ---------- */
+function addSocialRow(title='', url=''){
+  const wrap = document.createElement('div'); wrap.className='social-row';
+  wrap.innerHTML = `<input placeholder="Title (Instagram, Website...)" value="${esc(title)}" class="soc-title">
+    <input placeholder="Link" value="${esc(url)}" class="soc-url">
+    <button type="button" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('socialRows').appendChild(wrap);
+}
+function collectSocialRows(){
+  return [...document.querySelectorAll('#socialRows .social-row')].map(r=>({
+    title: r.querySelector('.soc-title').value.trim(), url: r.querySelector('.soc-url').value.trim()
+  })).filter(r=>r.title||r.url);
+}
+function toggleOther(selId, otherId){
+  const show = document.getElementById(selId).value === 'Other';
+  document.getElementById(otherId).style.display = show ? 'block' : 'none';
+}
+
+/* ---------- voice ---------- */
+function toggleVoice(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert('Voice input is not supported on this browser. Works best on Android Chrome.'); return; }
+  const btn = document.getElementById('micBtn');
+  if(recognition){ recognition.stop(); recognition=null; btn.classList.remove('listening'); return; }
+  recognition = new SR();
+  recognition.lang = 'en-IN'; recognition.interimResults = false; recognition.continuous = false;
+  recognition.onresult = (e)=>{ const text = e.results[0][0].transcript; const ta = document.getElementById('f_note'); ta.value = (ta.value ? ta.value+' ' : '') + text; };
+  recognition.onend = ()=>{ btn.classList.remove('listening'); recognition=null; };
+  recognition.onerror = ()=>{ btn.classList.remove('listening'); recognition=null; };
+  recognition.start(); btn.classList.add('listening');
+}
+
+/* ---------- form open/close ---------- */
+function openForm(id){
+  editingId = id || null;
+  const l = id ? leads.find(x=>x.id===id) : null;
+  document.getElementById('sheetTitle').textContent = l ? 'Edit Lead' : 'New Lead';
+  document.getElementById('leadIdLine').textContent = l ? l.id : '(ID assigned on save)';
+  document.getElementById('deleteBtn').style.display = l ? 'block' : 'none';
+  document.getElementById('f_biz').value = l?.business||'';
+  document.getElementById('f_owner').value = l?.owner||'';
+  document.getElementById('f_dm').value = l?.decisionMaker||'';
+  document.getElementById('f_designation').value = l?.designation||'';
+  document.getElementById('f_phones').value = (l?.phones||[]).join(', ');
+  document.getElementById('f_emails').value = (l?.emails||[]).join(', ');
+  document.getElementById('f_website').value = l?.website||'';
+  document.getElementById('f_gmap').value = l?.gmap||'';
+  document.getElementById('socialRows').innerHTML=''; (l?.socialLinks||[]).forEach(s=>addSocialRow(s.title,s.url));
+  document.getElementById('f_gst').value = l?.gst||'';
+  document.getElementById('f_industry').value = l?.industry||'';
+  document.getElementById('f_companysize').value = l?.companySize||'';
+  document.getElementById('f_revenue').value = l?.revenue||'';
+  const srcKnown = SOURCE_LIST.includes(l?.source); document.getElementById('f_source').value = srcKnown ? l.source : (l?.source ? 'Other' : 'GMB');
+  document.getElementById('f_source_other').value = srcKnown ? '' : (l?.source||''); document.getElementById('f_source_other').style.display = srcKnown||!l ? 'none':'block';
+  document.getElementById('f_subsource').value = l?.subSource||'';
+  document.getElementById('f_campaign').value = l?.campaign||'';
+  const reqKnown = ['Website','Digital Marketing','Website+Digital Marketing','Editing','Ads Management','Content Creation','YouTube Videos'].includes(l?.req);
+  document.getElementById('f_req').value = reqKnown ? l.req : (l?.req ? 'Other' : 'Website');
+  document.getElementById('f_req_other').value = reqKnown ? '' : (l?.req||''); document.getElementById('f_req_other').style.display = reqKnown||!l ? 'none':'block';
+  document.getElementById('f_status').value = l?.status||'Lead';
+  document.getElementById('f_cost').value = l?.cost||'';
+  document.getElementById('f_close').value = l?.closeDate||'';
+  document.getElementById('f_qualified').value = l?.qualifiedOn||'';
+  document.getElementById('f_cbdate').value = l?.callback?.date||'';
+  document.getElementById('f_cbtime').value = l?.callback?.time||'';
+  document.getElementById('f_cbpriority').value = l?.callback?.priority||'medium';
+  document.getElementById('f_cbremind').value = l?.callback?.remind ?? '15';
+  document.getElementById('f_cbrepeat').value = l?.callback?.repeat||'none';
+  document.getElementById('f_mdate').value = l?.meeting?.date||'';
+  document.getElementById('f_mtime').value = l?.meeting?.time||'';
+  document.getElementById('f_mlocation').value = l?.meeting?.location||'';
+  document.getElementById('f_mmap').value = l?.meeting?.map||'';
+  document.getElementById('f_magenda').value = l?.meeting?.agenda||'';
+  document.getElementById('f_moutcome').value = l?.meeting?.outcome||'';
+  document.getElementById('f_mnext').value = l?.meeting?.next||'';
+  document.getElementById('f_note').value = l?.note||'';
+  document.getElementById('f_tags').value = (l?.tags||[]).join(', ');
+  document.getElementById('f_color').value = l?.color||'';
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+}
+function openSettings(){
+  document.getElementById('backdrop').classList.add('open');
+  document.getElementById('settingsSheet').classList.add('open');
+}
+function closeAllSheets(){
+  document.getElementById('backdrop').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('settingsSheet').classList.remove('open');
+  editingId = null;
+  if(recognition){ recognition.stop(); recognition=null; }
+}
+
+/* ---------- save/delete ---------- */
+function splitList(str){ return str.split(',').map(s=>s.trim()).filter(Boolean); }
+
+async function saveLead(){
+  const biz = document.getElementById('f_biz').value.trim();
+  if(!biz){ alert('Business name is required.'); return; }
+  const phones = splitList(document.getElementById('f_phones').value);
+
+  if(!editingId){
+    const dup = leads.find(x => (x.business||'').toLowerCase()===biz.toLowerCase() || (phones.length && x.phones && x.phones.some(p=>phones.includes(p))));
+    if(dup && !confirm(`Possible duplicate: "${dup.business}" already exists. Save anyway?`)) return;
+  }
+  const source = document.getElementById('f_source').value==='Other' ? (document.getElementById('f_source_other').value.trim()||'Other') : document.getElementById('f_source').value;
+  const req = document.getElementById('f_req').value==='Other' ? (document.getElementById('f_req_other').value.trim()||'Other') : document.getElementById('f_req').value;
+  const cbdate = document.getElementById('f_cbdate').value;
+
+  const data = {
+    business: biz, owner: document.getElementById('f_owner').value.trim(),
+    decisionMaker: document.getElementById('f_dm').value.trim(), designation: document.getElementById('f_designation').value.trim(),
+    phones, emails: splitList(document.getElementById('f_emails').value),
+    website: document.getElementById('f_website').value.trim(), gmap: document.getElementById('f_gmap').value.trim(),
+    socialLinks: collectSocialRows(),
+    gst: document.getElementById('f_gst').value.trim(), industry: document.getElementById('f_industry').value.trim(),
+    companySize: document.getElementById('f_companysize').value, revenue: document.getElementById('f_revenue').value.trim(),
+    source, subSource: document.getElementById('f_subsource').value.trim(), campaign: document.getElementById('f_campaign').value.trim(),
+    req, status: document.getElementById('f_status').value, cost: document.getElementById('f_cost').value,
+    closeDate: document.getElementById('f_close').value, qualifiedOn: document.getElementById('f_qualified').value,
+    callback: cbdate ? { date: cbdate, time: document.getElementById('f_cbtime').value, priority: document.getElementById('f_cbpriority').value, remind: document.getElementById('f_cbremind').value, repeat: document.getElementById('f_cbrepeat').value } : null,
+    meeting: { date: document.getElementById('f_mdate').value, time: document.getElementById('f_mtime').value, location: document.getElementById('f_mlocation').value.trim(), map: document.getElementById('f_mmap').value.trim(), agenda: document.getElementById('f_magenda').value.trim(), outcome: document.getElementById('f_moutcome').value.trim(), next: document.getElementById('f_mnext').value },
+    note: document.getElementById('f_note').value.trim(), tags: splitList(document.getElementById('f_tags').value), color: document.getElementById('f_color').value,
+    updatedAt: Date.now()
+  };
+  if(editingId){ const idx=leads.findIndex(x=>x.id===editingId); leads[idx]={...leads[idx], ...data}; }
+  else { leads.push({id: nextLeadId(), createdAt: Date.now(), starred:false, ...data}); }
+  await persist(); closeAllSheets(); render(); scheduleReminders();
+}
+async function deleteLead(){
+  if(!editingId) return;
+  if(!confirm('Delete this lead? This cannot be undone.')) return;
+  leads = leads.filter(x=>x.id!==editingId);
+  await persist(); closeAllSheets(); render(); scheduleReminders();
+}
+
+/* ---------- reminders ---------- */
+function requestNotifPermission(){
+  if(!('Notification' in window)){ alert('Notifications not supported on this browser.'); return; }
+  Notification.requestPermission().then(p=>{
+    document.getElementById('notifBtn').textContent = p==='granted' ? '✓ Notifications enabled' : 'Permission denied';
+    if(p==='granted') scheduleReminders();
+  });
+}
+function scheduleReminders(){
+  scheduledTimeouts.forEach(t=>clearTimeout(t)); scheduledTimeouts=[];
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  const now = Date.now();
+  leads.forEach(l=>{
+    if(!l.callback || !l.callback.date) return;
+    const t = new Date(l.callback.date+'T'+(l.callback.time||'09:00'));
+    const remindMs = (parseInt(l.callback.remind||'15',10))*60000;
+    const fireAt = t.getTime() - remindMs;
+    const delay = fireAt - now;
+    if(delay>0 && delay < 24*3600*1000){
+      const id = setTimeout(()=>{ try{ new Notification('Callback: '+l.business, {body:(l.owner||'')+' · '+(l.callback.time||''), icon:'icon-192.png'}); }catch(e){} }, delay);
+      scheduledTimeouts.push(id);
+    }
+  });
+}
+
+/* ---------- export / import ---------- */
+function exportCSV(){
+  const headers = ['ID','Business','Owner','DecisionMaker','Designation','Phones','Emails','Website','GMaps','GST','Industry','CompanySize','Revenue','Source','SubSource','Campaign','Requirement','Status','Cost','CloseDate','QualifiedOn','CallbackDate','CallbackTime','Note','Tags'];
+  const rows = leads.map(l=>[l.id,l.business,l.owner,l.decisionMaker,l.designation,(l.phones||[]).join(';'),(l.emails||[]).join(';'),l.website,l.gmap,l.gst,l.industry,l.companySize,l.revenue,l.source,l.subSource,l.campaign,l.req,l.status,l.cost,l.closeDate,l.qualifiedOn,l.callback?.date||'',l.callback?.time||'',l.note,(l.tags||[]).join(';')]);
+  const csv = [headers, ...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'}); const a=document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'ledger-leads-'+todayStr()+'.csv'; a.click();
+}
+function importCSV(evt){
+  const file = evt.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    const text = e.target.result;
+    const lines = text.split('\n').filter(l=>l.trim());
+    const parseLine = (line)=>{ const out=[]; let cur='',inQ=false; for(let i=0;i<line.length;i++){ const c=line[i]; if(c==='"'){ if(inQ && line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; } else if(c===','&&!inQ){ out.push(cur); cur=''; } else cur+=c; } out.push(cur); return out; };
+    const rows = lines.slice(1).map(parseLine);
+    let count=0;
+    rows.forEach(r=>{
+      if(!r[1]) return;
+      leads.push({ id: nextLeadId(), createdAt: Date.now(), starred:false, business:r[1], owner:r[2], decisionMaker:r[3], designation:r[4],
+        phones:(r[5]||'').split(';').filter(Boolean), emails:(r[6]||'').split(';').filter(Boolean), website:r[7], gmap:r[8], gst:r[9], industry:r[10],
+        companySize:r[11], revenue:r[12], source:r[13], subSource:r[14], campaign:r[15], req:r[16], status:r[17]||'Lead', cost:r[18], closeDate:r[19], qualifiedOn:r[20],
+        callback: r[21] ? {date:r[21],time:r[22],priority:'medium',remind:'15',repeat:'none'} : null, note:r[23], tags:(r[24]||'').split(';').filter(Boolean), socialLinks:[], meeting:{} });
+      count++;
+    });
+    await persist(); render(); alert(count+' leads imported.');
+  };
+  reader.readAsText(file);
+}
+function printPDF(){
+  const s = computeStats();
+  let html = `<h2>Ledger — Sales Report (${todayStr()})</h2>
+    <p>Total: ${s.total} | Won: ${s.won} | Lost: ${s.lost} | Conversion: ${s.conversionRate}%</p>
+    <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:12px">
+    <tr><th>ID</th><th>Business</th><th>Owner</th><th>Status</th><th>Cost</th><th>Source</th><th>Callback</th></tr>` +
+    leads.map(l=>`<tr><td>${l.id}</td><td>${esc(l.business)}</td><td>${esc(l.owner||'')}</td><td>${esc(l.status)}</td><td>${money(l.cost)}</td><td>${esc(l.source||'')}</td><td>${l.callback?.date||''}</td></tr>`).join('') +
+    `</table>`;
+  document.getElementById('printArea').innerHTML = html;
+  window.print();
+}
+
+/* ---------- init ---------- */
+loadLeads();
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>
